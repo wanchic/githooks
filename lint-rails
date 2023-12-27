@@ -1,0 +1,67 @@
+#!/bin/bash
+declare -a ERRORS=()
+
+usage() { printf "Usage: $0\n\t-h [Help]\n\t-t [HEAD over --cached]\n\t-s [segregate files]\n\t-f [fail on first file]\n\t-a [autofix, if possible]\n" 1>&2; exit 1; }
+
+SCAN="--cached"
+SINGLE=false
+ONE_FILE=false
+AUTO_FIX=""
+
+while getopts ":htsfa" o; do
+  case "${o}" in
+    t)
+      SCAN="HEAD"
+      ;;
+    s)
+      SINGLE=true
+      ;;
+    f)
+      SINGLE=true
+      ONE_FILE=true      
+      ;;  
+    a)
+      AUTO_FIX="-a "	    
+      ;;
+    h | *)
+      usage
+      ;;
+  esac
+done
+shift "$((OPTIND-1))"
+
+printf "\nRunning rubocop 🚓 💨 💨 💨\n"
+
+if [[ $SINGLE == true ]]; then
+  for FILE in $(git diff --name-only $SCAN | grep -E '.rb')
+  do
+    ERROR="$(rubocop $AUTO_FIX$FILE | grep -e 'C:' -e 'E:')"	
+    ERRORS+=($ERROR)
+
+    if [[ "$ERROR" != "" ]]; then
+      rubocop $AUTO_FIX$FILE
+
+      if [[ $ONE_FILE = true ]]; then
+        break
+      fi
+    fi
+  done
+
+else
+  ERRORS=("$(rubocop $AUTO_FIX`git diff --name-only $SCAN | grep -E '.rb'` | grep -e 'C:' -e ':E')")
+
+  if [[ "$ERRORS" != "" ]]; then
+    rubocop $AUTO_FIX`git diff --name-only $SCAN | grep -E '.rb'`
+  fi
+
+fi
+
+if [[ "$ERRORS" != "" ]]; then
+  printf "\n 🚨 BEE-BOP! There are some things that you need to fix before commiting!\n"
+  exit 1
+fi
+
+printf "Done! Rubocop has no complains! ✅\n"
+
+exit 0
+
