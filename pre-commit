@@ -1,0 +1,66 @@
+#!/bin/bash
+usage() { printf "Usage: $0\n\t-h [Help]\n\t-o [still commit even with errors]\n\t-t [HEAD over --cached]\n\t-s [segregate files]\n\t-f [fail on first file]\n\t-a [autofix, if possible]\n" 1>&2; exit 1; }
+
+FAIL_ON_ERRORS=false
+SCAN=""
+AUTO_FIX=""
+
+while getopts ":hotsfa" o; do
+  case "${o}" in
+    o)
+      FAIL_ON_ERRORS=false
+      ;;      
+    t)
+      SCAN="-t"
+      ;;
+    s)
+      SINGLE=true
+      ;;
+    f)
+      SINGLE=true
+      ONE_FILE=true
+      ;;
+    a)
+      AUTO_FIX="-a"
+      ;;
+    h | *)
+      usage
+      ;;
+  esac
+done
+shift "$((OPTIND-1))"
+
+printf "\nLinting  💨 💨 💨\n"
+
+APP_DIR=$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )
+ERRORS=false
+
+bash lint-rails $SCAN $AUTO_FIX
+LINT_RUBY_REPLY=$?
+
+if [[ $LINT_RUBY_REPLY -ne 0 ]]; then
+  printf " 🚨 There are LINT concerns with Ruby and Rails!\n"
+  ERRORS=true
+fi
+
+if [[ $ERRORS = true ]]; then
+  printf "\n There are a number of concerns to address before commiting this code.\n"
+
+  if [[ $FAIL_ON_ERRORS = false ]]; then
+    printf "\nDo you wish to continue and commit with dirty code? (y/N):  "
+    read CONTINUE_WITH_COMMIT
+
+    if [[ $CONTINUE_WITH_COMMIT = 'y' ]]; then
+      exit 0
+    fi    
+  fi
+
+  printf "\n"
+  exit 1
+
+else
+  printf "Done! No complains! ✅\n"  
+
+fi
+
+exit 0
